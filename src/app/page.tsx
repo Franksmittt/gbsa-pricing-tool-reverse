@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { Plus, Pencil, Trash2, X, AlertTriangle, DollarSign, Percent, Search, Download, Printer, Upload, Check, RotateCcw, TrendingUp, TrendingDown, History, Save, BarChart2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, AlertTriangle, DollarSign, Download, Upload, Save, BarChart2 } from 'lucide-react';
 // import jsPDF from 'jspdf';  // Loaded from CDN
 // import html2canvas from 'html2canvas'; // Loaded from CDN
 
@@ -125,14 +125,14 @@ const ProductEditModal = ({ isOpen, onClose, product, suppliers, onSave, scrapVa
             </div>
           </div>
           <div>
-              <label className="block text-sm font-medium text-gray-700">Supplier's SKU</label>
+              <label className="block text-sm font-medium text-gray-700">Supplier&apos;s SKU</label>
               <input type="text" name="supplierSku" value={formData.supplierSku} onChange={handleChange} className="mt-1 block w-full p-3 border border-gray-300 rounded-lg"/>
           </div>
           <div>
               <label className="block text-sm font-medium text-gray-700">Invoice Price (Excl. VAT)</label>
               <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20}/>
-                <input type="number" name="invoicePrice" value={formData.invoicePrice} onChange={handleChange} className="mt-1 block w-full p-3 pl-10 border border-gray-300 rounded-lg"/>
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20}/>
+                  <input type="number" name="invoicePrice" value={formData.invoicePrice} onChange={handleChange} className="mt-1 block w-full p-3 pl-10 border border-gray-300 rounded-lg"/>
               </div>
           </div>
           {!ANCHOR_SUPPLIERS.includes(suppliers.find(s => s.id === formData.supplierId)?.name) && (
@@ -215,7 +215,6 @@ const SupplierCostView = ({ suppliers, supplierProducts, onProductUpdate, onProd
   const [isScrapModalOpen, setIsScrapModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
 
-  const activeSupplier = suppliers.find(s => s.id === activeSupplierId);
   const productsForSupplier = supplierProducts.filter(p => p.supplierId === activeSupplierId);
 
   const handleEditProduct = (product) => {
@@ -305,7 +304,7 @@ const GpAnalysisView = ({ suppliers, supplierProducts, scrapValues, manualPrices
     const [isVatIncluded, setIsVatIncluded] = useState(false);
     const allSkus = useMemo(() => [...new Set(supplierProducts.map(p => p.internalSku))].filter(Boolean).sort(), [supplierProducts]);
 
-    const getCostDataForAnalysis = (sku, brand) => {
+    const getCostDataForAnalysis = useCallback((sku, brand) => {
         const isAnchor = ANCHOR_SUPPLIERS.includes(brand);
         if (isAnchor) {
             const anchorProducts = supplierProducts.filter(p => {
@@ -330,7 +329,7 @@ const GpAnalysisView = ({ suppliers, supplierProducts, scrapValues, manualPrices
                 };
             });
         }
-    };
+    }, [supplierProducts, suppliers, scrapValues]);
 
     const handlePriceInputChange = (sku, brand, value) => {
         const price = parseFloat(value) || 0;
@@ -389,14 +388,14 @@ const GpAnalysisView = ({ suppliers, supplierProducts, scrapValues, manualPrices
             const totalRows = brandsData.reduce((acc, b) => acc + b.costData.length, 0);
             return { sku, brandsData, totalRows };
         }).filter(s => s.totalRows > 0);
-    }, [allSkus, suppliers, supplierProducts, scrapValues]);
+    }, [allSkus, getCostDataForAnalysis]);
 
 
     return (
         <Card>
             <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
                 <div>
-                    <h2 className="text-3xl font-bold text-gray-900 mb-2">"Price-First" GP Analysis</h2>
+                    <h2 className="text-3xl font-bold text-gray-900 mb-2">&quot;Price-First&quot; GP Analysis</h2>
                     <p className="text-gray-600">Enter your selling prices to instantly see the resulting Gross Profit.</p>
                 </div>
                 <Button onClick={handleExport} variant="secondary"><Download size={16}/> Export Analysis</Button>
@@ -541,7 +540,7 @@ export default function App() {
             };
 
             importedData.supplierProducts = importedData.supplierProducts.map(product => {
-                const { scrapType, supplierType, ...rest } = product;
+                const { scrapType, ...rest } = product;
                 return {
                     ...rest,
                     scrapCategoryId: scrapTypeToIdMap[scrapType] || scrapTypeToIdMap['none'],
