@@ -1,10 +1,29 @@
 'use client';
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Plus, Pencil, Trash2, X, AlertTriangle, DollarSign, Download, Upload, Save, BarChart2 } from 'lucide-react';
-// import jsPDF from 'jspdf';  // Loaded from CDN
-// import html2canvas from 'html2canvas'; // Loaded from CDN
 
-// --- CONFIGURATION & INITIAL DATA (/config/data.ts) ---
+// --- TYPE DEFINITIONS ---
+interface Supplier {
+  id: string;
+  name: string;
+}
+
+interface ScrapValue {
+  id: string;
+  category: string;
+  value: number;
+}
+
+interface SupplierProduct {
+  id: string;
+  supplierId: string;
+  supplierSku: string;
+  internalSku: string;
+  invoicePrice: number;
+  scrapCategoryId: string;
+}
+
+// --- CONFIGURATION & INITIAL DATA ---
 const VAT_RATE = 0.15;
 const ANCHOR_SUPPLIERS = ['Exide', 'Willard'];
 const HOUSE_BRANDS = ['Global 12', 'Novax 18', 'Novax Premium'];
@@ -14,14 +33,14 @@ const INTERNAL_SKU_CATEGORIES = [
   "610", "611", "612", "615", "616", "619", "621", "622", "628", "630", "631", "634", "636", "636CS / HT", "638", "639", "640 / 643", "646", "651", "652", "652PS 75Ah", "657", "659", "650", "658", "668", "669", "674", "682", "683", "689", "690", "692", "695", "696", "SMF100 / 674TP", "SMF101 / 674SP", "612AGM", "646AGM", "652AGM", "668AGM", "658AGM", "RR0", "RR1"
 ];
 
-const INITIAL_SUPPLIERS = [
+const INITIAL_SUPPLIERS: Supplier[] = [
   { id: 's1', name: 'Exide' },
   { id: 's2', name: 'Willard' },
   { id: 's3', name: 'Electro City' },
   { id: 's4', name: 'Enertec' },
 ];
 
-const INITIAL_SUPPLIER_PRODUCTS = [
+const INITIAL_SUPPLIER_PRODUCTS: SupplierProduct[] = [
   // SKU 619
   { id: 'p1', supplierId: 's1', supplierSku: 'EX-619', internalSku: '619', invoicePrice: 900, scrapCategoryId: 'sv1' },
   { id: 'p2', supplierId: 's2', supplierSku: 'WL-619', internalSku: '619', invoicePrice: 950, scrapCategoryId: 'sv1' },
@@ -37,7 +56,7 @@ const INITIAL_SUPPLIER_PRODUCTS = [
 ];
 
 // --- CORE PRICING ENGINE & UTILITIES ---
-const getAdjustedCost = (product, suppliers, scrapValues) => {
+const getAdjustedCost = (product: SupplierProduct, suppliers: Supplier[], scrapValues: ScrapValue[]) => {
     const supplier = suppliers.find(s => s.id === product.supplierId);
     if (!supplier) return product.invoicePrice;
     if (ANCHOR_SUPPLIERS.includes(supplier.name)) {
@@ -47,19 +66,19 @@ const getAdjustedCost = (product, suppliers, scrapValues) => {
     return product.invoicePrice - scrapValue;
 };
 
-const formatCurrency = (amount) => {
+const formatCurrency = (amount: number) => {
   if (typeof amount !== 'number' || isNaN(amount)) return "N/A";
   return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(amount);
 };
 
 // --- REUSABLE UI COMPONENTS ---
-const Card = ({ children, className = '' }) => (
+const Card = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
   <div className={`bg-white rounded-xl shadow-lg overflow-hidden ${className}`}>
     <div className="p-6 md:p-8">{children}</div>
   </div>
 );
 
-const Button = ({ children, onClick, variant = 'primary', className = '', disabled = false }) => {
+const Button = ({ children, onClick, variant = 'primary', className = '', disabled = false }: { children: React.ReactNode, onClick?: () => void, variant?: 'primary' | 'secondary' | 'danger' | 'ghost', className?: string, disabled?: boolean }) => {
   const baseClasses = 'px-4 py-2 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105';
   const variantClasses = {
     primary: 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg',
@@ -70,7 +89,7 @@ const Button = ({ children, onClick, variant = 'primary', className = '', disabl
   return <button onClick={onClick} disabled={disabled} className={`${baseClasses} ${variantClasses[variant]} ${className}`}>{children}</button>;
 };
 
-const Modal = ({ isOpen, onClose, title, children }) => {
+const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean, onClose: () => void, title: string, children: React.ReactNode }) => {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-start pt-16 sm:items-center p-4" onClick={onClose}>
@@ -88,16 +107,16 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 };
 
 // --- MODALS ---
-const ProductEditModal = ({ isOpen, onClose, product, suppliers, onSave, scrapValues }) => {
-  const [formData, setFormData] = useState(null);
+const ProductEditModal = ({ isOpen, onClose, product, suppliers, onSave, scrapValues }: { isOpen: boolean, onClose: () => void, product: SupplierProduct | null, suppliers: Supplier[], onSave: (product: SupplierProduct) => void, scrapValues: ScrapValue[] }) => {
+  const [formData, setFormData] = useState<SupplierProduct | null>(null);
 
   useEffect(() => {
     setFormData(product ? {...product} : null);
   }, [product]);
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: name === 'invoicePrice' ? parseFloat(value) || 0 : value }));
+    setFormData(prev => prev ? ({ ...prev, [name]: name === 'invoicePrice' ? parseFloat(value) || 0 : value }) : null);
   };
 
   const handleSave = () => {
@@ -135,7 +154,7 @@ const ProductEditModal = ({ isOpen, onClose, product, suppliers, onSave, scrapVa
                   <input type="number" name="invoicePrice" value={formData.invoicePrice} onChange={handleChange} className="mt-1 block w-full p-3 pl-10 border border-gray-300 rounded-lg"/>
               </div>
           </div>
-          {!ANCHOR_SUPPLIERS.includes(suppliers.find(s => s.id === formData.supplierId)?.name) && (
+          {!ANCHOR_SUPPLIERS.includes(suppliers.find(s => s.id === formData.supplierId)?.name || '') && (
             <div>
                 <label className="block text-sm font-medium text-gray-700">Scrap Category (for Cost Deduction)</label>
                 <select name="scrapCategoryId" value={formData.scrapCategoryId} onChange={handleChange} className="mt-1 block w-full p-3 border border-gray-300 rounded-lg">
@@ -153,14 +172,14 @@ const ProductEditModal = ({ isOpen, onClose, product, suppliers, onSave, scrapVa
   );
 };
 
-const ScrapValueManagerModal = ({ isOpen, onClose, scrapValues, onSave }) => {
-    const [localScrapValues, setLocalScrapValues] = useState([]);
+const ScrapValueManagerModal = ({ isOpen, onClose, scrapValues, onSave }: { isOpen: boolean, onClose: () => void, scrapValues: ScrapValue[], onSave: (values: ScrapValue[]) => void }) => {
+    const [localScrapValues, setLocalScrapValues] = useState<ScrapValue[]>([]);
     
     useEffect(() => {
         setLocalScrapValues(JSON.parse(JSON.stringify(scrapValues))); // Deep copy
     }, [scrapValues, isOpen]);
 
-    const handleValueChange = (id, newValue) => {
+    const handleValueChange = (id: string, newValue: string) => {
         setLocalScrapValues(current => current.map(sv => sv.id === id ? {...sv, value: parseFloat(newValue) || 0} : sv));
     };
 
@@ -209,15 +228,15 @@ const ScrapValueManagerModal = ({ isOpen, onClose, scrapValues, onSave }) => {
 
 
 // --- VIEWS ---
-const SupplierCostView = ({ suppliers, supplierProducts, onProductUpdate, onProductAdd, onProductDelete, scrapValues, onScrapValuesUpdate }) => {
+const SupplierCostView = ({ suppliers, supplierProducts, onProductUpdate, onProductAdd, onProductDelete, scrapValues, onScrapValuesUpdate }: { suppliers: Supplier[], supplierProducts: SupplierProduct[], onProductUpdate: (product: SupplierProduct) => void, onProductAdd: (product: SupplierProduct) => void, onProductDelete: (id: string) => void, scrapValues: ScrapValue[], onScrapValuesUpdate: (values: ScrapValue[]) => void }) => {
   const [activeSupplierId, setActiveSupplierId] = useState(suppliers[0]?.id);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isScrapModalOpen, setIsScrapModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState(null);
+  const [editingProduct, setEditingProduct] = useState<SupplierProduct | null>(null);
 
   const productsForSupplier = supplierProducts.filter(p => p.supplierId === activeSupplierId);
 
-  const handleEditProduct = (product) => {
+  const handleEditProduct = (product: SupplierProduct) => {
     setEditingProduct(product);
     setIsProductModalOpen(true);
   };
@@ -230,7 +249,7 @@ const SupplierCostView = ({ suppliers, supplierProducts, onProductUpdate, onProd
     setIsProductModalOpen(true);
   };
 
-  const handleSaveProduct = (productData) => {
+  const handleSaveProduct = (productData: SupplierProduct) => {
     if (productData.id) {
       onProductUpdate(productData);
     } else {
@@ -289,7 +308,7 @@ const SupplierCostView = ({ suppliers, supplierProducts, onProductUpdate, onProd
                   </tr>
                 );
             }) : (
-                <tr><td colSpan="6" className="text-center py-12 text-gray-500">No products found for this supplier.</td></tr>
+                <tr><td colSpan={6} className="text-center py-12 text-gray-500">No products found for this supplier.</td></tr>
             )}
           </tbody>
         </table>
@@ -300,11 +319,11 @@ const SupplierCostView = ({ suppliers, supplierProducts, onProductUpdate, onProd
   );
 };
 
-const GpAnalysisView = ({ suppliers, supplierProducts, scrapValues, manualPrices, onPriceChange }) => {
+const GpAnalysisView = ({ suppliers, supplierProducts, scrapValues, manualPrices, onPriceChange }: { suppliers: Supplier[], supplierProducts: SupplierProduct[], scrapValues: ScrapValue[], manualPrices: { [key: string]: number }, onPriceChange: (sku: string, brand: string, price: number) => void }) => {
     const [isVatIncluded, setIsVatIncluded] = useState(false);
     const allSkus = useMemo(() => [...new Set(supplierProducts.map(p => p.internalSku))].filter(Boolean).sort(), [supplierProducts]);
 
-    const getCostDataForAnalysis = useCallback((sku, brand) => {
+    const getCostDataForAnalysis = useCallback((sku: string, brand: string) => {
         const isAnchor = ANCHOR_SUPPLIERS.includes(brand);
         if (isAnchor) {
             const anchorProducts = supplierProducts.filter(p => {
@@ -331,18 +350,18 @@ const GpAnalysisView = ({ suppliers, supplierProducts, scrapValues, manualPrices
         }
     }, [supplierProducts, suppliers, scrapValues]);
 
-    const handlePriceInputChange = (sku, brand, value) => {
+    const handlePriceInputChange = (sku: string, brand: string, value: string) => {
         const price = parseFloat(value) || 0;
         const priceExVat = isVatIncluded ? price / (1 + VAT_RATE) : price;
         onPriceChange(sku, brand, priceExVat);
     };
     
-    const getDisplayPrice = (sku, brand) => {
+    const getDisplayPrice = (sku: string, brand: string) => {
         const priceExVat = manualPrices[`${sku}-${brand}`] || 0;
         return isVatIncluded ? priceExVat * (1 + VAT_RATE) : priceExVat;
     };
 
-    const getGpColor = (gpPercent) => {
+    const getGpColor = (gpPercent: number) => {
         if (gpPercent > 35) return 'text-green-600 bg-green-50';
         if (gpPercent > 15) return 'text-yellow-800 bg-yellow-50';
         if (gpPercent >= 0) return 'text-orange-600 bg-orange-50';
@@ -477,17 +496,19 @@ const GpAnalysisView = ({ suppliers, supplierProducts, scrapValues, manualPrices
 export default function App() {
   const [isMounted, setIsMounted] = useState(false);
   const [activeView, setActiveView] = useState('analysis'); // Default to the new analysis tool
-  const [suppliers, setSuppliers] = useState(INITIAL_SUPPLIERS);
-  const [supplierProducts, setSupplierProducts] = useState(INITIAL_SUPPLIER_PRODUCTS);
-  const [scrapValues, setScrapValues] = useState([
+  const [suppliers, setSuppliers] = useState<Supplier[]>(INITIAL_SUPPLIERS);
+  const [supplierProducts, setSupplierProducts] = useState<SupplierProduct[]>(INITIAL_SUPPLIER_PRODUCTS);
+  const [scrapValues, setScrapValues] = useState<ScrapValue[]>([
     { id: 'sv1', category: 'none', value: 0 },
     { id: 'sv2', category: 'standard', value: 150 },
     { id: 'sv3', category: 'large', value: 250 },
   ]);
-  const [manualPrices, setManualPrices] = useState({});
-  const fileInputRef = useRef(null);
+  const [manualPrices, setManualPrices] = useState<{ [key: string]: number }>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // CDN scripts are not ideal in Next.js, but keeping them for now.
+    // Consider npm packages like 'jspdf' and 'html2canvas' for a more robust solution.
     const jspdfScript = document.createElement('script');
     jspdfScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
     jspdfScript.async = true;
@@ -501,8 +522,8 @@ export default function App() {
     setIsMounted(true);
 
     return () => {
-        document.body.removeChild(jspdfScript);
-        document.body.removeChild(html2canvasScript);
+        if (jspdfScript.parentNode) document.body.removeChild(jspdfScript);
+        if (html2canvasScript.parentNode) document.body.removeChild(html2canvasScript);
     }
   }, []);
 
@@ -518,36 +539,15 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  const handleImportData = (event) => {
-    const file = event.target.files[0];
+  const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const importedData = JSON.parse(e.target.result);
-
-        if (importedData.supplierProducts && importedData.supplierProducts[0] && 'scrapType' in importedData.supplierProducts[0]) {
-            console.log("Old data format detected. Migrating...");
-            const defaultScrapValues = [
-                { id: 'sv1', category: 'none', value: 0 },
-                { id: 'sv2', category: 'standard', value: 150 },
-                { id: 'sv3', category: 'large', value: 250 },
-            ];
-            const scrapTypeToIdMap = {
-                'none': defaultScrapValues.find(s => s.category === 'none').id,
-                'standard': defaultScrapValues.find(s => s.category === 'standard').id,
-                'large': defaultScrapValues.find(s => s.category === 'large').id,
-            };
-
-            importedData.supplierProducts = importedData.supplierProducts.map(product => {
-                const { scrapType, ...rest } = product;
-                return {
-                    ...rest,
-                    scrapCategoryId: scrapTypeToIdMap[scrapType] || scrapTypeToIdMap['none'],
-                };
-            });
-        }
-
+        const importedData = JSON.parse(e.target?.result as string);
+        
+        // Basic validation
         if (importedData.suppliers && importedData.supplierProducts) {
           setSuppliers(importedData.suppliers);
           setSupplierProducts(importedData.supplierProducts);
@@ -563,21 +563,21 @@ export default function App() {
       }
     };
     reader.readAsText(file);
-    event.target.value = null;
+    if(event.target) event.target.value = '';
   };
 
-  const triggerImport = () => fileInputRef.current.click();
+  const triggerImport = () => fileInputRef.current?.click();
 
-  const handleManualPriceChange = (sku, brand, price) => {
+  const handleManualPriceChange = (sku: string, brand: string, price: number) => {
       const key = `${sku}-${brand}`;
       setManualPrices(prev => ({...prev, [key]: price}));
   }
 
-  const handleProductUpdate = (updatedProduct) => setSupplierProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
-  const handleProductAdd = (newProduct) => {
+  const handleProductUpdate = (updatedProduct: SupplierProduct) => setSupplierProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+  const handleProductAdd = (newProduct: SupplierProduct) => {
     setSupplierProducts(prev => [...prev, newProduct]);
   };
-  const handleProductDelete = (productId) => setSupplierProducts(prev => prev.filter(p => p.id !== productId));
+  const handleProductDelete = (productId: string) => setSupplierProducts(prev => prev.filter(p => p.id !== productId));
 
   if (!isMounted) return <div className="flex justify-center items-center min-h-screen bg-gray-100 text-gray-700">Initializing Pricing Engine...</div>;
 
